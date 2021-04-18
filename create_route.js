@@ -18,13 +18,16 @@ const dataBase = myArgs[0];
 const tableName = myArgs[1];
 
 function Create_Entry_Template() {
-    doc += "const router = require(\'express\').Router(); \n" +
-        "const verify = require(\'../verifytoken\'); \n" +
-        "const Joi = require(\'joi\'); \n" +
-        "const db = require(\'../../db/donempool\').donemPool; \n" +
-        "const formatsql = require(\'../../routes/formatsql-promising\'); \n" +
-        "\n" +
-        "\n";
+    doc += "const router = require(\'express\').Router(); \n" ;
+    doc +="const verify = require(\'../verifytoken\'); \n" ;
+    doc +="const Joi = require(\'joi\'); \n" ;
+    doc +="const {db, getDonemClient}  = require(\'../../db/maincn\'); \n" ;
+    doc +="const formatsql = require(\'../../routes/formatsql-promising\'); \n" ;
+    doc +="\n" ;
+    doc +="\n" ;
+    doc +="const {createErrResp} = require(\'../../miscfuncs\'); \n" ;
+    doc +="const { number } = require(\'joi\'); \n";
+
 }
 
 function Create_Validation() {
@@ -40,27 +43,41 @@ function Create_Validation() {
             doc += " \n";
         }
     }
-    doc += "}); \n"
-    doc += `return ${tableName}Schema.validate(data); \n`
+    doc += "}); \n";
+    doc += `return ${tableName}Schema.validate(data); \n`;
     doc += "}; \n";
     doc += "\n";
     doc += "\n";
 }
 
+function Create_Authorization() {
+
+    doc += "// Tüm servislerin geçiş noktasi, burada hem token valide ediliyor hemde second token olup olmadığı kontrol ediliyor. \n";
+    doc += "router.use(verify,(req,res,next) => { \n";
+    doc += "//console.log('calistim ' + req._payload._d_id); \n";
+    doc += "if (!req._payload._d_id || req._payload._d_id==0 ){ \n";
+    doc += "    return res.status(400).send(createErrResp('Error : invalid token non d_id')); \n";
+    doc += "} \n";
+    doc += "next(); \n";    
+    doc += "}); \n";
+}
+
 function Create_Post() {
-    doc += "router.post('/', verify, async (req, res) => { \n";
-    doc += "\n";
+    doc += "router.post('/', async (req, res) => { \n";
+    doc += "let client;\n";
     doc += "try { \n";
     doc += "// validation of data\n";
     doc += `const validate = await ${tableName}Validation(req.body); \n`;
-    doc += "if (validate.error) return res.status(400).send(\"VALIDATOR: \" + validate.error.message);\n";
+    doc += "if (validate.error) return res.status(400).send(createErrResp(\"VALIDATOR: \" + validate.error.message));\n";
     doc += "\n";
+    doc += "client = await getDonemClient(req._payload._d_id); \n";
+    doc += "client.connect(); \n"; 
     doc += "//DB INSERT \n";
-    doc += `const sonuc = await db.query(\'INSERT INTO ${tableName} (`
+    doc += `const sonuc = await client.query(\'INSERT INTO ${tableName} (`;
    
     let insert_fields = "";
     let value_str = "\' VALUES (";
-    let body_str = "["    
+    let body_str = "[";    
 
     for (let index = 0; index < fields.length; index++) {
         const element = fields[index];
@@ -70,9 +87,9 @@ function Create_Post() {
         if (index !== (fields.length - 1)) {
             insert_fields = insert_fields + ",";     
             value_str = value_str + " ,";
-            body_str = body_str + " , \n"
+            body_str = body_str + " , \n";
         } else {
-            insert_fields = insert_fields + ") \' + \n"
+            insert_fields = insert_fields + ") \' + \n";
             value_str = value_str + ") RETURNING *\', \n";
             body_str = body_str + "]); \n";
         }
@@ -83,7 +100,9 @@ function Create_Post() {
     doc += "res.send(sonuc.rows[0]); \n";
 
     doc += "} catch (err) { \n";
-    doc += "res.status(400).send(\"DATABASE :\" + err.message); \n";
+    doc += "res.status(400).send(createErrResp(\'Error :\' + err.message + \' Error Body :\' + err)); \n";
+    doc += "} finally {\n";
+    doc += "    client.end(); \n";
     doc += "} \n";
     doc += "}); \n";
     doc += "\n";
@@ -91,16 +110,17 @@ function Create_Post() {
 }
 
 function Create_Put() {
-    doc += "router.put('/', verify, async (req, res) => { \n";
+    doc += "router.put('/',  async (req, res) => { \n";
+    doc += "let client;\n";
     doc += "\n";
     doc += "try { \n";
     doc += "// validation of data\n";
     doc += `const validate = await ${tableName}Validation(req.body); \n`;
-    doc += "if (validate.error) return res.status(400).send(\"VALIDATOR: \" + validate.error.message);\n";
+    doc += "if (validate.error) return res.status(400).send(createErrResp(\"VALIDATOR: \" + validate.error.message));\n";
     doc += "\n";
-    doc += "if (String(req.body.base_code).trim().length == 0) return res.status(400).send('invalid base code'); \n" 
+    doc += "if (String(req.body.base_code).trim().length == 0) return res.status(400).send(createErrResp('invalid base code')); \n"; 
     doc += "//DB UPDATE \n";
-    doc += `const sonuc = await db.query('UPDATE ${tableName} SET  `
+    doc += `const sonuc = await client.query('UPDATE ${tableName} SET  `;
    
     let insert_fields = "";
     let body_str = "[";    
@@ -116,7 +136,7 @@ function Create_Put() {
          body_str = body_str + "req.body." + element.name ;      
         if (index !== (fields.length - 1)) {
             insert_fields = insert_fields + "\' + \n";     
-            body_str = body_str + " , \n"
+            body_str = body_str + " , \n";
         } else {
             insert_fields = insert_fields + ` WHERE  lower(${fields[0].name}) = $${fields.length + 1} RETURNING *\',  \n`; 
             body_str = body_str + " ,\n";
@@ -129,7 +149,9 @@ function Create_Put() {
     doc += "res.send(sonuc.rows[0]); \n \n";
 
     doc += "} catch (err) { \n";
-    doc += "res.status(400).send(\"DATABASE :\" + err.message); \n";
+    doc += "    res.status(400).send(createErrResp(\'Error :\' + err.message + \' Error Body :\' + err)); \n";
+    doc += "} finally {\n";
+    doc += "    client.end(); \n";
     doc += "} \n";
     doc += "}); \n";
     doc += "\n";
@@ -137,17 +159,87 @@ function Create_Put() {
 }
 
 function Create_get() {
-    doc += "router.get('/', verify, (req, res) => { \n";
+    doc += "router.post('/get/', async (req, res) => { \n";
+    doc += "let client;\n";
     doc += "\n";
-    doc += "formatsql(req).then(sqlQuery => { \n";
-    doc += "//console.log(sqlQuery);\n";
-    doc += "db.query(sqlQuery).then(sonuc => { res.send(sonuc.rows); }) \n";
-    doc += ".catch(err => res.status(400).send(sqlQuery + err.message)); \n";
-    doc += "}).catch(error => res.status(400).send(error)); \n \n"; 
+    doc += "try { \n";
+
+    doc += "    const sqlQuery = await formatsql(req);\n";
+    doc += "    //console.log(sqlQuery);\n";
+    doc += "    client = await getDonemClient(req._payload._d_id); \n";
+    doc += "    client.connect(); \n"; 
+    doc += "    const sonuc = await client.query(sqlQuery); \n";
+    doc += "    res.send(sonuc.rows); \n";
+    doc += " } catch (hata) { \n";
+    doc += "    res.status(400).send(createErrResp(\'Error :\' + hata.message )); \n";
+    doc += " } finally { \n";
+    doc += "    client.end(); \n";
+    doc += " } \n";    
     doc += "}); \n \n";
-    doc += "module.exports = router; \n \n \n";
+}
+function Create_Delete() {
+    doc += "router.delete('/:kod', async (req, res) => { \n";
+    doc += "    let client;\n";
+    doc += "    try {\n";
+    doc += "        // validation of data\n";
+    doc += "        if (!req.params.kod) {\n";
+    doc += "            return res.status(400).send(createErrResp(\"VALIDATOR: kod must be provided..\"));\n";
+    doc += "        }\n";
+    doc += "\n";
+    doc += "        client = await getDonemClient(req._payload._d_id);\n";
+    doc += "        client.connect(); \n";
+    doc += "      \n";
+    doc += "        const sonuc = await client.query('delete from " + tableName +" where +"+tableName + "_kod = $1 RETURNING *',[String(req.params.kod).trim()]);\n";
+    doc += "        let resp={};\n";
+    doc += "        resp.resp =sonuc.rows[0]"+tableName+"_kod + ' deleted succesfully...'; \n";
+    doc += "        res.send(resp);\n";
+    doc += "    } catch (err) {\n";
+    doc += "        res.status(400).send(createErrResp('Error :' + err.message + ' Error Body :' + err));\n";
+    doc += "    } finally {\n";
+    doc += "        client.end();\n";
+    doc += "    }\n";
+    doc += "});\n";
+    doc += "\n";
+    doc += "\n";
 }
 
+function Create_NewCode() {
+    doc += "router.get('/getnewcode/', async (req, res) => {\n";
+    doc += "    let client;\n";
+    doc += "    try {\n";
+    doc += "        client = await getDonemClient(req._payload._d_id);\n";
+    doc += "        client.connect();\n";
+    doc += "        let sonuc;\n";
+    doc += "        sonuc = await client.query(\'select nextval(\'\'seq_"+ tableName +"_kod\'\')  as n_kod ;\');\n";
+    doc += "        let the_id = sonuc.rows[0].n_kod;\n";
+    doc += "        let pre_kod ='';\n";
+    doc += "        let kod_length = 0;\n";
+
+    doc += "        sonuc = await client.query('select * from parameters where p_modul = $1',[\'"+ tableName.toLocaleUpperCase('tr') +"\'] );\n";
+    doc += "        sonuc.rows.forEach(element => {\n";
+    doc += "            switch (element.parameter) {\n";
+    doc += "                case \"PRE_KOD\":\n";
+    doc += "                    pre_kod = element.par_value;\n";
+    doc += "                    break;\n";
+    doc += "                case \"KOD_LENGTH\":\n";
+    doc += "                    kod_length = parseInt(element.par_value);\n";
+    doc += "                    break;\n";
+    doc += "                    \n";
+    doc += "                default:\n";
+    doc += "                    break;\n";
+    doc += "            }\n";
+    doc += "        });\n";
+    doc += "        let resp= {};\n";
+    doc += "        resp.kod = pre_kod + the_id.toString().padStart(kod_length - pre_kod.length, \'0\');\n";
+    doc += "        res.status(200).send(resp);\n";     
+    doc += "    } catch (hata) {\n";
+    doc += "        res.status(400).send(createErrResp(\'Error :\' + hata.message));\n";
+    doc += "    } finally {\n";
+    doc += "        client.end();\n";
+    doc += "    }\n";
+    doc += "});\n";
+
+    }
 let CnString = '';
 switch (dataBase) {
     case 'donem':
@@ -195,10 +287,15 @@ pool.connect()
                 console.log("Getting table properties " + tableName);
                 fields = mainrows.fields;
                 Create_Entry_Template();
+                Create_Authorization();
                 Create_Validation();
                 Create_Post();
                 Create_Put();
-                Create_get();    
+                Create_get();
+                Create_Delete();
+                Create_NewCode();
+                doc += "\n";
+                doc += "module.exports = router;\n";
                 console.log(doc);
                 fs.writeFile(tableName+".js",doc,function(err){
                     if (err) throw err;
@@ -211,7 +308,7 @@ pool.connect()
                 client.release();
                 console.log(error);
                 return -1;
-            })
+            });
     }).catch(error => {
         console.log(error);
         return -1;
