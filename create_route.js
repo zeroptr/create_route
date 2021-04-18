@@ -18,21 +18,21 @@ const dataBase = myArgs[0];
 const tableName = myArgs[1];
 
 function Create_Entry_Template() {
-    doc += "const router = require(\'express\').Router(); \n" ;
-    doc +="const verify = require(\'../verifytoken\'); \n" ;
-    doc +="const Joi = require(\'joi\'); \n" ;
-    doc +="const {db, getDonemClient}  = require(\'../../db/maincn\'); \n" ;
-    doc +="const formatsql = require(\'../../routes/formatsql-promising\'); \n" ;
-    doc +="\n" ;
-    doc +="\n" ;
-    doc +="const {createErrResp} = require(\'../../miscfuncs\'); \n" ;
-    doc +="const { number } = require(\'joi\'); \n";
+    doc += "const router = require(\'express\').Router(); \n";
+    doc += "const verify = require(\'../verifytoken\'); \n";
+    doc += "const Joi = require(\'joi\'); \n";
+    doc += "const {db, getDonemClient}  = require(\'../../db/maincn\'); \n";
+    doc += "const formatsql = require(\'../../routes/formatsql-promising\'); \n";
+    doc += "\n";
+    doc += "\n";
+    doc += "const {createErrResp} = require(\'../../miscfuncs\'); \n";
+    doc += "const { number } = require(\'joi\'); \n";
 
 }
 
 function Create_Validation() {
     doc += "const " + tableName + "Validation = data => { \n" +
-        "const cariSchema = Joi.object({ \n";
+        "const " + tableName + "Schema = Joi.object({ \n";
 
     for (let index = 0; index < fields.length; index++) {
         const element = fields[index];
@@ -58,7 +58,7 @@ function Create_Authorization() {
     doc += "if (!req._payload._d_id || req._payload._d_id==0 ){ \n";
     doc += "    return res.status(400).send(createErrResp('Error : invalid token non d_id')); \n";
     doc += "} \n";
-    doc += "next(); \n";    
+    doc += "next(); \n";
     doc += "}); \n";
 }
 
@@ -71,21 +71,21 @@ function Create_Post() {
     doc += "if (validate.error) return res.status(400).send(createErrResp(\"VALIDATOR: \" + validate.error.message));\n";
     doc += "\n";
     doc += "client = await getDonemClient(req._payload._d_id); \n";
-    doc += "client.connect(); \n"; 
+    doc += "client.connect(); \n";
     doc += "//DB INSERT \n";
     doc += `const sonuc = await client.query(\'INSERT INTO ${tableName} (`;
-   
+
     let insert_fields = "";
     let value_str = "\' VALUES (";
-    let body_str = "[";    
+    let body_str = "[";
 
     for (let index = 0; index < fields.length; index++) {
         const element = fields[index];
-        insert_fields = insert_fields + " " +element.name ;
-        value_str = value_str + " $" + String(index + 1) ;
-        body_str = body_str + "req.body." + element.name ;      
+        insert_fields = insert_fields + " " + element.name;
+        value_str = value_str + " $" + String(index + 1);
+        body_str = body_str + "req.body." + element.name;
         if (index !== (fields.length - 1)) {
-            insert_fields = insert_fields + ",";     
+            insert_fields = insert_fields + ",";
             value_str = value_str + " ,";
             body_str = body_str + " , \n";
         } else {
@@ -94,9 +94,9 @@ function Create_Post() {
             body_str = body_str + "]); \n";
         }
     }
-    
+
     doc += insert_fields + value_str + body_str;
-  
+
     doc += "res.send(sonuc.rows[0]); \n";
 
     doc += "} catch (err) { \n";
@@ -106,7 +106,7 @@ function Create_Post() {
     doc += "} \n";
     doc += "}); \n";
     doc += "\n";
-    doc += "\n";   
+    doc += "\n";
 }
 
 function Create_Put() {
@@ -118,34 +118,34 @@ function Create_Put() {
     doc += `const validate = await ${tableName}Validation(req.body); \n`;
     doc += "if (validate.error) return res.status(400).send(createErrResp(\"VALIDATOR: \" + validate.error.message));\n";
     doc += "\n";
-    doc += "if (String(req.body.base_code).trim().length == 0) return res.status(400).send(createErrResp('invalid base code')); \n"; 
+    doc += "if (String(req.body.base_code).trim().length == 0) return res.status(400).send(createErrResp('invalid base code')); \n";
     doc += "//DB UPDATE \n";
     doc += `const sonuc = await client.query('UPDATE ${tableName} SET  `;
-   
+
     let insert_fields = "";
-    let body_str = "[";    
+    let body_str = "[";
 
     for (let index = 0; index < fields.length; index++) {
         const element = fields[index];
-        if (index == 0){
-            insert_fields = insert_fields + " " +element.name + "= $" + String(index + 1) ;                
+        if (index == 0) {
+            insert_fields = insert_fields + " " + element.name + "= $" + String(index + 1) ;
         } else {
-            insert_fields = insert_fields + " '" +element.name + "= $" + String(index + 1) ;
+            insert_fields = insert_fields + " '" + element.name + "= $" + String(index + 1) ;
         }
-        
-         body_str = body_str + "req.body." + element.name ;      
+
+        body_str = body_str + "req.body." + element.name;
         if (index !== (fields.length - 1)) {
-            insert_fields = insert_fields + "\' + \n";     
+            insert_fields = insert_fields + "\' , + \n";
             body_str = body_str + " , \n";
         } else {
-            insert_fields = insert_fields + ` WHERE  lower(${fields[0].name}) = $${fields.length + 1} RETURNING *\',  \n`; 
+            insert_fields = insert_fields + ` WHERE  ${fields[0].name} = $${fields.length + 1} RETURNING *\',  \n`;
             body_str = body_str + " ,\n";
-            body_str = body_str + "String(req.body.base_code).trim().toLocaleLowerCase('tr') \n  ]); \n";
+            body_str = body_str + "String(req.body.base_code).trim() \n  ]); \n";
         }
     }
-    
+
     doc += insert_fields + body_str;
-  
+
     doc += "res.send(sonuc.rows[0]); \n \n";
 
     doc += "} catch (err) { \n";
@@ -155,7 +155,7 @@ function Create_Put() {
     doc += "} \n";
     doc += "}); \n";
     doc += "\n";
-    doc += "\n";   
+    doc += "\n";
 }
 
 function Create_get() {
@@ -163,18 +163,17 @@ function Create_get() {
     doc += "let client;\n";
     doc += "\n";
     doc += "try { \n";
-
+    doc += "    client = await getDonemClient(req._payload._d_id); \n";
+    doc += "    client.connect(); \n";
     doc += "    const sqlQuery = await formatsql(req);\n";
     doc += "    //console.log(sqlQuery);\n";
-    doc += "    client = await getDonemClient(req._payload._d_id); \n";
-    doc += "    client.connect(); \n"; 
     doc += "    const sonuc = await client.query(sqlQuery); \n";
     doc += "    res.send(sonuc.rows); \n";
     doc += " } catch (hata) { \n";
     doc += "    res.status(400).send(createErrResp(\'Error :\' + hata.message )); \n";
     doc += " } finally { \n";
     doc += "    client.end(); \n";
-    doc += " } \n";    
+    doc += " } \n";
     doc += "}); \n \n";
 }
 function Create_Delete() {
@@ -189,9 +188,9 @@ function Create_Delete() {
     doc += "        client = await getDonemClient(req._payload._d_id);\n";
     doc += "        client.connect(); \n";
     doc += "      \n";
-    doc += "        const sonuc = await client.query('delete from " + tableName +" where +"+tableName + "_kod = $1 RETURNING *',[String(req.params.kod).trim()]);\n";
+    doc += "        const sonuc = await client.query('delete from " + tableName + " where " + tableName + "_kod = $1 RETURNING *',[String(req.params.kod).trim()]);\n";
     doc += "        let resp={};\n";
-    doc += "        resp.resp =sonuc.rows[0]"+tableName+"_kod + ' deleted succesfully...'; \n";
+    doc += "        resp.resp =sonuc.rows[0]." + tableName + "_kod + ' deleted succesfully...'; \n";
     doc += "        res.send(resp);\n";
     doc += "    } catch (err) {\n";
     doc += "        res.status(400).send(createErrResp('Error :' + err.message + ' Error Body :' + err));\n";
@@ -210,12 +209,12 @@ function Create_NewCode() {
     doc += "        client = await getDonemClient(req._payload._d_id);\n";
     doc += "        client.connect();\n";
     doc += "        let sonuc;\n";
-    doc += "        sonuc = await client.query(\'select nextval(\'\'seq_"+ tableName +"_kod\'\')  as n_kod ;\');\n";
+    doc += "        sonuc = await client.query(\'select nextval(\'\'seq_" + tableName + "_kod\'\')  as n_kod ;\');\n";
     doc += "        let the_id = sonuc.rows[0].n_kod;\n";
     doc += "        let pre_kod ='';\n";
     doc += "        let kod_length = 0;\n";
 
-    doc += "        sonuc = await client.query('select * from parameters where p_modul = $1',[\'"+ tableName.toLocaleUpperCase('tr') +"\'] );\n";
+    doc += "        sonuc = await client.query('select * from parameters where p_modul = $1',[\'" + tableName.toLocaleUpperCase('tr') + "\'] );\n";
     doc += "        sonuc.rows.forEach(element => {\n";
     doc += "            switch (element.parameter) {\n";
     doc += "                case \"PRE_KOD\":\n";
@@ -231,7 +230,7 @@ function Create_NewCode() {
     doc += "        });\n";
     doc += "        let resp= {};\n";
     doc += "        resp.kod = pre_kod + the_id.toString().padStart(kod_length - pre_kod.length, \'0\');\n";
-    doc += "        res.status(200).send(resp);\n";     
+    doc += "        res.status(200).send(resp);\n";
     doc += "    } catch (hata) {\n";
     doc += "        res.status(400).send(createErrResp(\'Error :\' + hata.message));\n";
     doc += "    } finally {\n";
@@ -239,7 +238,7 @@ function Create_NewCode() {
     doc += "    }\n";
     doc += "});\n";
 
-    }
+}
 let CnString = '';
 switch (dataBase) {
     case 'donem':
@@ -297,11 +296,11 @@ pool.connect()
                 doc += "\n";
                 doc += "module.exports = router;\n";
                 console.log(doc);
-                fs.writeFile(tableName+".js",doc,function(err){
+                fs.writeFile(tableName + ".js", doc, function (err) {
                     if (err) throw err;
-                    
-                    console.log("Saved to "+ tableName+".js");
-                    
+
+                    console.log("Saved to " + tableName + ".js");
+
                 });
 
             }).catch(error => {
