@@ -119,6 +119,11 @@ function Create_Put() {
     doc += "if (validate.error) return res.status(400).send(createErrResp(\"VALIDATOR: \" + validate.error.message));\n";
     doc += "\n";
     doc += "if (String(req.body.base_code).trim().length == 0) return res.status(400).send(createErrResp('invalid base code')); \n";
+    doc += "\n";
+    doc += "\n";
+    doc += "client = await getDonemClient(req._payload._d_id); \n";
+    doc += "client.connect(); \n";
+
     doc += "//DB UPDATE \n";
     doc += `const sonuc = await client.query('UPDATE ${tableName} SET  `;
 
