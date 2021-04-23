@@ -67,7 +67,7 @@ function Create_Post() {
     doc += "let client;\n";
     doc += "try { \n";
     doc += "// validation of data\n";
-    doc += `const validate = await ${tableName}Validation(req.body); \n`;
+    doc += `const validate = ${tableName}Validation(req.body); \n`;
     doc += "if (validate.error) return res.status(400).send(createErrResp(\"VALIDATOR: \" + validate.error.message));\n";
     doc += "\n";
     doc += "client = await getDonemClient(req._payload._d_id); \n";
@@ -115,7 +115,7 @@ function Create_Put() {
     doc += "\n";
     doc += "try { \n";
     doc += "// validation of data\n";
-    doc += `const validate = await ${tableName}Validation(req.body); \n`;
+    doc += `const validate =  ${tableName}Validation(req.body); \n`;
     doc += "if (validate.error) return res.status(400).send(createErrResp(\"VALIDATOR: \" + validate.error.message));\n";
     doc += "\n";
     doc += "if (String(req.body.base_code).trim().length == 0) return res.status(400).send(createErrResp('invalid base code')); \n";
@@ -140,7 +140,7 @@ function Create_Put() {
 
         body_str = body_str + "req.body." + element.name;
         if (index !== (fields.length - 1)) {
-            insert_fields = insert_fields + "\' , + \n";
+            insert_fields = insert_fields + ", \' + \n";
             body_str = body_str + " , \n";
         } else {
             insert_fields = insert_fields + ` WHERE  ${fields[0].name} = $${fields.length + 1} RETURNING *\',  \n`;
